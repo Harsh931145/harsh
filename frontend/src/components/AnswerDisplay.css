@@ -1,0 +1,136 @@
+.answer-display {
+  background: linear-gradient(135deg, #f6f8fb 0%, #ffffff 100%);
+  border-radius: 15px;
+  padding: 30px;
+  border: 2px solid #e2e8f0;
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.answer-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.check-icon {
+  color: #48bb78;
+}
+
+.answer-header h2 {
+  font-size: 1.5rem;
+  color: #2d3748;
+  font-weight: 700;
+}
+
+.answer-content {
+  background: white;
+  padding: 25px;
+  border-radius: 12px;
+  border-left: 4px solid #667eea;
+  margin-bottom: 25px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.answer-content p {
+  font-size: 1.1rem;
+  line-height: 1.8;
+  color: #2d3748;
+  white-space: pre-wrap;
+}
+
+.sources-section,
+.confidence-section {
+  margin-top: 20px;
+}
+
+.sources-header,
+.confidence-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: #4a5568;
+}
+
+.sources-header h3,
+.confidence-header h3 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.sources-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.source-tag {
+  background: #edf2f7;
+  color: #2d3748;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  border: 1px solid #cbd5e0;
+}
+
+.confidence-bar-container {
+  background: #e2e8f0;
+  border-radius: 10px;
+  height: 36px;
+  overflow: hidden;
+  position: relative;
+}
+
+.confidence-bar {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 12px;
+  border-radius: 10px;
+  transition: width 1s ease-out;
+}
+
+.confidence-bar.high {
+  background: linear-gradient(90deg, #48bb78, #38a169);
+}
+
+.confidence-bar.medium {
+  background: linear-gradient(90deg, #ed8936, #dd6b20);
+}
+
+.confidence-bar.low {
+  background: linear-gradient(90deg, #f56565, #e53e3e);
+}
+
+.confidence-text {
+  color: white;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .answer-display {
+    padding: 20px;
+  }
+
+  .answer-content {
+    padding: 20px;
+  }
+
+  .answer-content p {
+    font-size: 1rem;
+  }
+}
