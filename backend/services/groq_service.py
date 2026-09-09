@@ -140,7 +140,7 @@ Instructions:
 Please provide your answer:"""
                     }
                 ],
-                model="llama-3.1-70b-versatile",  # Current active Groq model (as of 2024)
+                model="openai/gpt-oss-120b",  # Current active Groq model (as of 2024)
                 temperature=0.2,
                 max_tokens=1500,
             )
