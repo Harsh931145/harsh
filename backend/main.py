@@ -84,7 +84,9 @@ async def startup_event():
 @app.get("/")
 async def root():
     ai_provider = "None"
-    if USE_DEEPSEEK:
+    if USE_META:
+        ai_provider = "Meta Muse Glimmer (Free)"
+    elif USE_DEEPSEEK:
         ai_provider = "DeepSeek AI (Free)"
     elif USE_XAI:
         ai_provider = "xAI Grok"
@@ -92,13 +94,15 @@ async def root():
         ai_provider = "Groq (Free)"
     elif USE_OPENAI:
         ai_provider = "OpenAI"
-    
+
+    ai_configured = bool(USE_META or USE_DEEPSEEK or USE_XAI or USE_GROQ or USE_OPENAI)
+
     return {
         "message": "Exam Dashboard API",
         "version": "1.0.0",
         "ai_provider": ai_provider,
-        "status": "Ready" if (USE_DEEPSEEK or USE_XAI or USE_GROQ or USE_OPENAI) else "⚠️ No AI configured",
-        "get_free_key": "https://build.nvidia.com/ or https://console.groq.com/" if not (USE_DEEPSEEK or USE_XAI or USE_GROQ or USE_OPENAI) else None,
+        "status": "Ready" if ai_configured else "⚠️ No AI configured",
+        "get_free_key": "https://build.nvidia.com/ or https://console.groq.com/" if not ai_configured else None,
         "endpoints": {
             "/ask": "POST - Ask a question (text or with image)",
             "/upload": "POST - Upload PDF to knowledge base",
