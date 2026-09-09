@@ -6,13 +6,13 @@ import os
 from dotenv import load_dotenv
 import base64
 
-from services.pdf_processor import PDFProcessor
-from services.knowledge_base import KnowledgeBase
-from services.ai_service import AIService
-from services.groq_service import GroqService
-from services.xai_service import XAIService
-from services.deepseek_service import DeepSeekService
-from services.meta_service import MetaService
+from backend.services.pdf_processor import PDFProcessor
+from backend.services.knowledge_base import KnowledgeBase
+from backend.services.ai_service import AIService
+from backend.services.groq_service import GroqService
+from backend.services.xai_service import XAIService
+from backend.services.deepseek_service import DeepSeekService
+from backend.services.meta_service import MetaService
 # Load environment variables
 load_dotenv()
 
