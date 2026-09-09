@@ -37,8 +37,7 @@ wheels/
 .DS_Store
 
 # Knowledge base
-# PDFs MUST be committed so Railway deploys include the knowledge base.
-# (.index.faiss / .documents.pkl are auto-generated at startup - keep ignored)
+knowledgebase/*.pdf
 knowledgebase/.index.faiss
 knowledgebase/.documents.pkl
 
