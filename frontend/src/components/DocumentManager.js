@@ -96,7 +96,7 @@ function DocumentManager({ onClose }) {
       loadDocuments();
     } catch (error) {
       console.error('Error refreshing knowledge base:', error);
-      alert('Error refreshing knowledge base');
+      alert(error.response?.data?.detail || 'Error refreshing knowledge base');
     } finally {
       setLoading(false);
     }

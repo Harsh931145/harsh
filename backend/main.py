@@ -226,8 +226,12 @@ async def refresh_knowledge_base():
     """Refresh the knowledge base (re-process all documents)"""
     try:
         await knowledge_base.refresh()
-        return {"message": "Knowledge base refreshed successfully"}
+        return {
+            "message": "Knowledge base refreshed successfully",
+            "documents": knowledge_base.list_documents(),
+        }
     except Exception as e:
+        print(f"Error refreshing knowledge base: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
