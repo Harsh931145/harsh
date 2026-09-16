@@ -29,7 +29,7 @@ class GeminiService:
     def __init__(self, knowledge_base: KnowledgeBase):
         self.knowledge_base = knowledge_base
         self.api_key = os.getenv("GEMINI_API_KEY")
-        self.model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+        self.model = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
         if not self.api_key:
             print("WARNING: GEMINI_API_KEY not set. Gemini features will not work.")
