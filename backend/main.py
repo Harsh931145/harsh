@@ -13,9 +13,9 @@ from backend.services.knowledge_base import KnowledgeBase
 from backend.services.ai_service import AIService
 from backend.services.groq_service import GroqService
 from backend.services.xai_service import XAIService
-from backend.services.deepseek_service import DeepSeekService
 from backend.services.meta_service import MetaService
 from backend.services.fallback_ai_service import FallbackAIService
+from backend.services.gemini_service import GeminiService
 # Load environment variables
 load_dotenv()
 
@@ -82,28 +82,28 @@ knowledge_base = KnowledgeBase(knowledge_base_path)
 
 # Choose AI service based on available API keys.
 USE_META = os.getenv("META_API_KEY") and os.getenv("META_API_KEY") != "" and os.getenv("META_API_KEY") != "your_meta_api_key_here"
-USE_DEEPSEEK = os.getenv("DEEPSEEK_API_KEY") and os.getenv("DEEPSEEK_API_KEY") != "" and os.getenv("DEEPSEEK_API_KEY") != "your_deepseek_api_key_here"
+USE_GEMINI = os.getenv("GEMINI_API_KEY") and os.getenv("GEMINI_API_KEY") != ""
 USE_XAI = os.getenv("XAI_API_KEY") and os.getenv("XAI_API_KEY") != "" and os.getenv("XAI_API_KEY") != "your_xai_api_key_here"
 USE_GROQ = os.getenv("GROQ_API_KEY") and os.getenv("GROQ_API_KEY") != ""
 USE_OPENAI = os.getenv("OPENAI_API_KEY") and os.getenv("OPENAI_API_KEY") != ""
 
 provider_label = "None"
 
-if USE_GROQ and USE_DEEPSEEK:
-    print("✅ Using Groq AI primary + DeepSeek fallback")
+if USE_GEMINI and USE_GROQ:
+    print("✅ Using Gemini primary + Groq fallback")
     ai_service = FallbackAIService([
+        ("Gemini", GeminiService(knowledge_base)),
         ("Groq", GroqService(knowledge_base)),
-        ("DeepSeek", DeepSeekService(knowledge_base)),
     ])
-    provider_label = "Groq primary + DeepSeek fallback"
+    provider_label = "Gemini primary + Groq fallback"
+elif USE_GEMINI:
+    print("✅ Using Gemini AI")
+    ai_service = GeminiService(knowledge_base)
+    provider_label = "Gemini"
 elif USE_META:
     print("✅ Using Meta Muse Glimmer (FREE via NVIDIA! - Multimodal Text+Image)")
     ai_service = MetaService(knowledge_base)
     provider_label = "Meta Muse Glimmer"
-elif USE_DEEPSEEK:
-    print("✅ Using DeepSeek AI")
-    ai_service = DeepSeekService(knowledge_base)
-    provider_label = "DeepSeek AI"
 elif USE_XAI:
     print("✅ Using xAI Grok (Advanced AI!)")
     ai_service = XAIService(knowledge_base)
@@ -152,8 +152,8 @@ async def root():
         "knowledge_base_path": knowledge_base_path,
         "persistent_storage": knowledge_base_is_persistent,
         "ai_provider": provider_label,
-        "status": "Ready" if (USE_META or USE_DEEPSEEK or USE_XAI or USE_GROQ or USE_OPENAI) else "⚠️ No AI configured",
-        "get_free_key": "https://build.nvidia.com/ or https://console.groq.com/" if not (USE_META or USE_DEEPSEEK or USE_XAI or USE_GROQ or USE_OPENAI) else None,
+        "status": "Ready" if (USE_META or USE_GEMINI or USE_XAI or USE_GROQ or USE_OPENAI) else "⚠️ No AI configured",
+        "get_free_key": "https://aistudio.google.com/app/apikey or https://console.groq.com/" if not (USE_META or USE_GEMINI or USE_XAI or USE_GROQ or USE_OPENAI) else None,
         "endpoints": {
             "/ask": "POST - Ask a question (text or with image)",
             "/upload": "POST - Upload PDF to knowledge base",
