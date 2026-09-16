@@ -8,6 +8,11 @@ STOP_WORDS = {
     "which", "who", "with",
 }
 
+IMAGE_TEXT_UNREADABLE_MESSAGE = (
+    "I could not read the question from the screenshot. Please upload a clearer image "
+    "or type the question."
+)
+
 
 def build_search_question(question: str, image_text: str = "") -> str:
     """Use screenshot OCR text for retrieval instead of generic placeholder text."""
@@ -20,6 +25,14 @@ def build_search_question(question: str, image_text: str = "") -> str:
         return f"{question}\n\nText from screenshot:\n{image_text}"
 
     return question
+
+
+def is_placeholder_image_question(question: str) -> bool:
+    return (question or "").strip().lower() in {
+        "",
+        "what is shown in this image?",
+        "what is shown in this image",
+    }
 
 
 def select_answer_from_material(question: str, chunks: List[dict]) -> Optional[str]:
@@ -269,8 +282,4 @@ def _pick_option(
 
 
 def _is_placeholder_image_question(question: str) -> bool:
-    return question.strip().lower() in {
-        "",
-        "what is shown in this image?",
-        "what is shown in this image",
-    }
+    return is_placeholder_image_question(question)

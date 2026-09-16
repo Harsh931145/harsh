@@ -8,9 +8,11 @@ from .knowledge_base import KnowledgeBase
 from .image_utils import image_data_url
 from .ocr_service import extract_text_with_tesseract
 from .answer_selector import (
+    IMAGE_TEXT_UNREADABLE_MESSAGE,
     answer_from_retrieved_material,
     build_search_question,
     confidence_from_material_answer,
+    is_placeholder_image_question,
     select_answer_from_material,
 )
 from .answer_prompts import (
@@ -63,6 +65,8 @@ class AIService:
             image_text = ""
             if image_base64:
                 image_text = await self._extract_text_from_image(image_base64)
+                if not image_text and is_placeholder_image_question(question):
+                    return IMAGE_TEXT_UNREADABLE_MESSAGE, [], 0.0
                 question = build_search_question(question, image_text)
             
             # Search knowledge base for relevant context

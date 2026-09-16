@@ -2,9 +2,13 @@ import os
 from typing import Tuple, List, Optional
 from groq import Groq
 from .knowledge_base import KnowledgeBase
+from .ocr_service import extract_text_with_tesseract
 from .answer_selector import (
+    IMAGE_TEXT_UNREADABLE_MESSAGE,
     answer_from_retrieved_material,
+    build_search_question,
     confidence_from_material_answer,
+    is_placeholder_image_question,
     select_answer_from_material,
 )
 from .answer_prompts import (
@@ -53,9 +57,13 @@ class GroqService:
             )
         
         try:
-            # Note: Groq doesn't support vision yet, so we'll handle text only
             if image_base64:
-                question = f"{question}\n\n(Note: Image uploaded but Groq doesn't support vision yet. Please describe the image content or use text questions.)"
+                image_text = extract_text_with_tesseract(image_base64)
+                if image_text:
+                    print(f"Image OCR extracted {len(image_text)} characters")
+                elif is_placeholder_image_question(question):
+                    return IMAGE_TEXT_UNREADABLE_MESSAGE, [], 0.0
+                question = build_search_question(question, image_text)
             
             # Enhanced search with more results for better logical matching
             relevant_chunks = self.knowledge_base.search(question, top_k=12)
