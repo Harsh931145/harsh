@@ -15,6 +15,7 @@ from backend.services.groq_service import GroqService
 from backend.services.xai_service import XAIService
 from backend.services.deepseek_service import DeepSeekService
 from backend.services.meta_service import MetaService
+from backend.services.fallback_ai_service import FallbackAIService
 # Load environment variables
 load_dotenv()
 
@@ -79,28 +80,42 @@ seed_persistent_knowledge_base(knowledge_base_path, knowledge_base_is_persistent
 pdf_processor = PDFProcessor()
 knowledge_base = KnowledgeBase(knowledge_base_path)
 
-# Choose AI service based on available API keys (priority order: Meta > DeepSeek > xAI > Groq > OpenAI)
+# Choose AI service based on available API keys.
 USE_META = os.getenv("META_API_KEY") and os.getenv("META_API_KEY") != "" and os.getenv("META_API_KEY") != "your_meta_api_key_here"
 USE_DEEPSEEK = os.getenv("DEEPSEEK_API_KEY") and os.getenv("DEEPSEEK_API_KEY") != "" and os.getenv("DEEPSEEK_API_KEY") != "your_deepseek_api_key_here"
 USE_XAI = os.getenv("XAI_API_KEY") and os.getenv("XAI_API_KEY") != "" and os.getenv("XAI_API_KEY") != "your_xai_api_key_here"
 USE_GROQ = os.getenv("GROQ_API_KEY") and os.getenv("GROQ_API_KEY") != ""
 USE_OPENAI = os.getenv("OPENAI_API_KEY") and os.getenv("OPENAI_API_KEY") != ""
 
-if USE_META:
+provider_label = "None"
+
+if USE_GROQ and USE_DEEPSEEK:
+    print("✅ Using Groq AI primary + DeepSeek fallback")
+    ai_service = FallbackAIService([
+        ("Groq", GroqService(knowledge_base)),
+        ("DeepSeek", DeepSeekService(knowledge_base)),
+    ])
+    provider_label = "Groq primary + DeepSeek fallback"
+elif USE_META:
     print("✅ Using Meta Muse Glimmer (FREE via NVIDIA! - Multimodal Text+Image)")
     ai_service = MetaService(knowledge_base)
+    provider_label = "Meta Muse Glimmer"
 elif USE_DEEPSEEK:
-    print("✅ Using DeepSeek AI (FREE via NVIDIA!)")
+    print("✅ Using DeepSeek AI")
     ai_service = DeepSeekService(knowledge_base)
+    provider_label = "DeepSeek AI"
 elif USE_XAI:
     print("✅ Using xAI Grok (Advanced AI!)")
     ai_service = XAIService(knowledge_base)
+    provider_label = "xAI Grok"
 elif USE_GROQ:
     print("✅ Using Groq AI (Free & Fast!)")
     ai_service = GroqService(knowledge_base)
+    provider_label = "Groq (Free)"
 elif USE_OPENAI:
     print("✅ Using OpenAI")
     ai_service = AIService(knowledge_base)
+    provider_label = "OpenAI"
 else:
     print("⚠️  No AI service configured!")
     print("Get FREE Meta Muse key at: https://build.nvidia.com/meta/muse-glimmer-30b")
@@ -129,18 +144,6 @@ async def startup_event():
 
 @app.get("/")
 async def root():
-    ai_provider = "None"
-    if USE_META:
-        ai_provider = "Meta Muse Glimmer"
-    elif USE_DEEPSEEK:
-        ai_provider = "DeepSeek AI (Free)"
-    elif USE_XAI:
-        ai_provider = "xAI Grok"
-    elif USE_GROQ:
-        ai_provider = "Groq (Free)"
-    elif USE_OPENAI:
-        ai_provider = "OpenAI"
-    
     return {
         "message": "Dashboard API",
         "version": "1.0.0",
@@ -148,7 +151,7 @@ async def root():
         "ocr": "tesseract",
         "knowledge_base_path": knowledge_base_path,
         "persistent_storage": knowledge_base_is_persistent,
-        "ai_provider": ai_provider,
+        "ai_provider": provider_label,
         "status": "Ready" if (USE_META or USE_DEEPSEEK or USE_XAI or USE_GROQ or USE_OPENAI) else "⚠️ No AI configured",
         "get_free_key": "https://build.nvidia.com/ or https://console.groq.com/" if not (USE_META or USE_DEEPSEEK or USE_XAI or USE_GROQ or USE_OPENAI) else None,
         "endpoints": {

@@ -22,21 +22,21 @@ from .answer_prompts import (
 
 
 class DeepSeekService:
-    """Handle AI-powered question answering using DeepSeek API (FREE via NVIDIA)"""
+    """Handle AI-powered question answering using DeepSeek API"""
     
     def __init__(self, knowledge_base: KnowledgeBase):
         self.knowledge_base = knowledge_base
         self.api_key = os.getenv("DEEPSEEK_API_KEY")
-        self.model = os.getenv("DEEPSEEK_MODEL", "deepseek-ai/deepseek-v4-pro-0813")
+        self.model = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+        self.base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
         
         if not self.api_key:
             print("WARNING: DEEPSEEK_API_KEY not set. AI features will not work.")
             self.client = None
         else:
-            # DeepSeek via NVIDIA uses OpenAI-compatible API
             self.client = OpenAI(
                 api_key=self.api_key,
-                base_url="https://integrate.api.nvidia.com/v1"
+                base_url=self.base_url
             )
             print(f"🤖 DeepSeek initialized with model: {self.model}")
     
@@ -57,7 +57,7 @@ class DeepSeekService:
         """
         if not self.client:
             return (
-                "AI service not configured. Please set DEEPSEEK_API_KEY in .env file. Get a FREE key at https://build.nvidia.com/",
+                "AI service not configured. Please set DEEPSEEK_API_KEY in environment variables.",
                 [],
                 0.0
             )
@@ -71,8 +71,8 @@ class DeepSeekService:
                     return IMAGE_TEXT_UNREADABLE_MESSAGE, [], 0.0
                 question = build_search_question(question, image_text)
             
-            # Enhanced search with more results for better logical matching
-            relevant_chunks = self.knowledge_base.search(question, top_k=12)
+            # Enhanced search with enough results for logical matching without wasting tokens
+            relevant_chunks = self.knowledge_base.search(question, top_k=8)
             
             if not relevant_chunks:
                 return (
@@ -165,9 +165,9 @@ class DeepSeekService:
 
     async def _create_completion(self, messages: list) -> Optional[str]:
         chat_completion = self.client.chat.completions.create(
-            messages=messages,
-            model=self.model,
-            temperature=0,
-            max_tokens=200,
-        )
+                    messages=messages,
+                    model=self.model,
+                    temperature=0,
+                    max_tokens=80,
+                )
         return chat_completion.choices[0].message.content
