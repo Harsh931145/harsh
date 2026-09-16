@@ -2,10 +2,22 @@ import os
 from typing import Tuple, List, Optional
 from openai import OpenAI
 from .knowledge_base import KnowledgeBase
+from .image_utils import image_data_url
+from .ocr_service import extract_text_with_tesseract
+from .answer_selector import (
+    answer_from_retrieved_material,
+    build_search_question,
+    confidence_from_material_answer,
+    select_answer_from_material,
+)
 from .answer_prompts import (
     EXACT_ANSWER_SYSTEM_PROMPT,
     EXACT_IMAGE_QUESTION_TEMPLATE,
+    OCR_EXTRACTION_PROMPT,
+    EXACT_RETRY_QUESTION_TEMPLATE,
+    EXACT_RETRY_SYSTEM_PROMPT,
     EXACT_TEXT_QUESTION_TEMPLATE,
+    is_unhelpful_answer,
     normalize_exact_answer,
 )
 
@@ -25,7 +37,8 @@ class MetaService:
             # Meta Muse via NVIDIA uses OpenAI-compatible API
             self.client = OpenAI(
                 api_key=self.api_key,
-                base_url="https://integrate.api.nvidia.com/v1"
+                base_url="https://integrate.api.nvidia.com/v1",
+                timeout=20.0,
             )
             print(f"🤖 Meta Muse Glimmer initialized with model: {self.model}")
     
@@ -53,8 +66,15 @@ class MetaService:
             )
         
         try:
+            image_text = ""
+            if image_base64:
+                image_text = await self._extract_text_from_image(image_base64)
+                if image_text:
+                    print(f"Image OCR extracted {len(image_text)} characters")
+                question = build_search_question(question, image_text)
+
             # Enhanced search with more results for better logical matching
-            relevant_chunks = self.knowledge_base.search(question, top_k=8)
+            relevant_chunks = self.knowledge_base.search(question, top_k=12)
             
             if not relevant_chunks:
                 return (
@@ -66,9 +86,24 @@ class MetaService:
             # Prepare context with logical connections
             context = self._prepare_enhanced_context(relevant_chunks, question)
             sources = list(set([chunk['filename'] for chunk in relevant_chunks]))
+
+            local_answer = select_answer_from_material(question, relevant_chunks)
+            if local_answer:
+                return local_answer, sources, confidence_from_material_answer(
+                    local_answer,
+                    question,
+                    relevant_chunks,
+                )
             
             # Generate answer using Meta Muse with multimodal support
             answer = await self._generate_logical_answer(question, context, image_base64)
+            material_answer = answer_from_retrieved_material(question, relevant_chunks)
+            if is_unhelpful_answer(answer) and material_answer:
+                return material_answer, sources, confidence_from_material_answer(
+                    material_answer,
+                    question,
+                    relevant_chunks,
+                )
             
             # Calculate confidence based on relevance scores and keyword matching
             avg_relevance = sum(chunk['relevance_score'] for chunk in relevant_chunks) / len(relevant_chunks)
@@ -116,7 +151,7 @@ class MetaService:
                     {
                         "type": "image_url",
                         "image_url": {
-                            "url": f"data:image/jpeg;base64,{image_base64}"
+                            "url": image_data_url(image_base64)
                         }
                     }
                 ]
@@ -134,14 +169,80 @@ class MetaService:
                     )
                 })
             
-            chat_completion = self.client.chat.completions.create(
-                messages=messages,
-                model=self.model,
-                temperature=0,
-                max_tokens=200,
+            answer = await self._create_completion(messages)
+            if not is_unhelpful_answer(answer):
+                return normalize_exact_answer(answer)
+
+            retry_user_content = EXACT_RETRY_QUESTION_TEMPLATE.format(
+                question=question,
+                context=context,
             )
-            
-            return normalize_exact_answer(chat_completion.choices[0].message.content)
+            retry_messages = [
+                {
+                    "role": "system",
+                    "content": EXACT_RETRY_SYSTEM_PROMPT
+                }
+            ]
+            if image_base64:
+                retry_messages.append({
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": retry_user_content
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": image_data_url(image_base64)
+                            }
+                        }
+                    ]
+                })
+            else:
+                retry_messages.append({
+                    "role": "user",
+                    "content": retry_user_content
+                })
+            return normalize_exact_answer(await self._create_completion(retry_messages))
             
         except Exception as e:
             raise Exception(f"Error calling Meta Muse API: {str(e)}")
+
+    async def _create_completion(self, messages: list) -> Optional[str]:
+        chat_completion = self.client.chat.completions.create(
+            messages=messages,
+            model=self.model,
+            temperature=0,
+            max_tokens=200,
+            timeout=20.0,
+        )
+        return chat_completion.choices[0].message.content
+
+    async def _extract_text_from_image(self, image_base64: str) -> str:
+        local_text = extract_text_with_tesseract(image_base64)
+        if local_text:
+            return local_text
+
+        try:
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": OCR_EXTRACTION_PROMPT
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": image_data_url(image_base64)
+                            }
+                        }
+                    ]
+                }
+            ]
+            return (await self._create_completion(messages) or "").strip()
+        except Exception as e:
+            print(f"Error extracting text from image: {e}")
+            return ""

@@ -9,7 +9,7 @@ function AnswerDisplay({ answer }) {
     confidencePercentage >= 50 ? 'medium' : 'low';
   const answerText = answer.answer && answer.answer.trim()
     ? answer.answer
-    : 'Not found in uploaded materials';
+    : 'Answer unavailable. Please try again.';
 
   return (
     <div className="answer-display">

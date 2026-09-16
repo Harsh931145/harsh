@@ -14,7 +14,7 @@ if not exist .env (
 
 REM Install dependencies if needed
 echo Installing dependencies...
-pip install fastapi uvicorn python-multipart PyPDF2 sentence-transformers faiss-cpu pillow python-dotenv openai pydantic numpy langchain langchain-community groq
+pip install fastapi uvicorn python-multipart PyPDF2 sentence-transformers faiss-cpu pillow python-dotenv openai pydantic numpy langchain langchain-community groq pytesseract
 
 echo.
 echo ============================================

@@ -5,10 +5,21 @@ from io import BytesIO
 from PIL import Image
 import openai
 from .knowledge_base import KnowledgeBase
+from .image_utils import image_data_url
+from .ocr_service import extract_text_with_tesseract
+from .answer_selector import (
+    answer_from_retrieved_material,
+    build_search_question,
+    confidence_from_material_answer,
+    select_answer_from_material,
+)
 from .answer_prompts import (
     EXACT_ANSWER_SYSTEM_PROMPT,
+    EXACT_RETRY_QUESTION_TEMPLATE,
+    EXACT_RETRY_SYSTEM_PROMPT,
     EXACT_TEXT_QUESTION_TEMPLATE,
     OCR_EXTRACTION_PROMPT,
+    is_unhelpful_answer,
     normalize_exact_answer,
 )
 
@@ -52,11 +63,10 @@ class AIService:
             image_text = ""
             if image_base64:
                 image_text = await self._extract_text_from_image(image_base64)
-                if image_text:
-                    question = f"{question}\n\nText from screenshot: {image_text}"
+                question = build_search_question(question, image_text)
             
             # Search knowledge base for relevant context
-            relevant_chunks = self.knowledge_base.search(question, top_k=5)
+            relevant_chunks = self.knowledge_base.search(question, top_k=12)
             
             if not relevant_chunks:
                 return (
@@ -68,9 +78,24 @@ class AIService:
             # Prepare context from relevant chunks
             context = self._prepare_context(relevant_chunks)
             sources = list(set([chunk['filename'] for chunk in relevant_chunks]))
+
+            local_answer = select_answer_from_material(question, relevant_chunks)
+            if local_answer:
+                return local_answer, sources, confidence_from_material_answer(
+                    local_answer,
+                    question,
+                    relevant_chunks,
+                )
             
             # Generate answer using OpenAI
             answer = await self._generate_answer(question, context)
+            material_answer = answer_from_retrieved_material(question, relevant_chunks)
+            if is_unhelpful_answer(answer) and material_answer:
+                return material_answer, sources, confidence_from_material_answer(
+                    material_answer,
+                    question,
+                    relevant_chunks,
+                )
             
             # Calculate confidence based on relevance scores
             avg_relevance = sum(chunk['relevance_score'] for chunk in relevant_chunks) / len(relevant_chunks)
@@ -83,6 +108,10 @@ class AIService:
     
     async def _extract_text_from_image(self, image_base64: str) -> str:
         """Extract text from image using OpenAI Vision API"""
+        local_text = extract_text_with_tesseract(image_base64)
+        if local_text:
+            return local_text
+
         try:
             # Use OpenAI GPT-4 Vision to extract text
             response = openai.chat.completions.create(
@@ -98,13 +127,14 @@ class AIService:
                             {
                                 "type": "image_url",
                                 "image_url": {
-                                    "url": f"data:image/jpeg;base64,{image_base64}"
+                                    "url": image_data_url(image_base64)
                                 }
                             }
                         ]
                     }
                 ],
-                max_tokens=1000
+                max_tokens=1000,
+                timeout=20.0
             )
             
             return response.choices[0].message.content
@@ -127,9 +157,7 @@ class AIService:
     async def _generate_answer(self, question: str, context: str) -> str:
         """Generate answer using OpenAI GPT"""
         try:
-            response = openai.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
+            messages = [
                     {
                         "role": "system",
                         "content": EXACT_ANSWER_SYSTEM_PROMPT
@@ -141,12 +169,36 @@ class AIService:
                             context=context,
                         )
                     }
-                ],
-                temperature=0,
-                max_tokens=200
-            )
-            
-            return normalize_exact_answer(response.choices[0].message.content)
+                ]
+
+            answer = await self._create_completion(messages)
+            if not is_unhelpful_answer(answer):
+                return normalize_exact_answer(answer)
+
+            retry_messages = [
+                {
+                    "role": "system",
+                    "content": EXACT_RETRY_SYSTEM_PROMPT
+                },
+                {
+                    "role": "user",
+                    "content": EXACT_RETRY_QUESTION_TEMPLATE.format(
+                        question=question,
+                        context=context,
+                    )
+                }
+            ]
+            return normalize_exact_answer(await self._create_completion(retry_messages))
             
         except Exception as e:
             raise Exception(f"Error calling OpenAI API: {str(e)}")
+
+    async def _create_completion(self, messages: list) -> Optional[str]:
+        response = openai.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=messages,
+                temperature=0,
+                max_tokens=200,
+                timeout=20.0
+            )
+        return response.choices[0].message.content

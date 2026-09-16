@@ -2,9 +2,17 @@ import os
 from typing import Tuple, List, Optional
 from openai import OpenAI
 from .knowledge_base import KnowledgeBase
+from .answer_selector import (
+    answer_from_retrieved_material,
+    confidence_from_material_answer,
+    select_answer_from_material,
+)
 from .answer_prompts import (
     EXACT_ANSWER_SYSTEM_PROMPT,
+    EXACT_RETRY_QUESTION_TEMPLATE,
+    EXACT_RETRY_SYSTEM_PROMPT,
     EXACT_TEXT_QUESTION_TEMPLATE,
+    is_unhelpful_answer,
     normalize_exact_answer,
 )
 
@@ -55,7 +63,7 @@ class XAIService:
                 question = f"{question}\n\n(Note: Image uploaded but vision support may be limited. Please describe the image content or use text questions.)"
             
             # Enhanced search with more results for better logical matching
-            relevant_chunks = self.knowledge_base.search(question, top_k=8)
+            relevant_chunks = self.knowledge_base.search(question, top_k=12)
             
             if not relevant_chunks:
                 return (
@@ -67,9 +75,24 @@ class XAIService:
             # Prepare context with logical connections
             context = self._prepare_enhanced_context(relevant_chunks, question)
             sources = list(set([chunk['filename'] for chunk in relevant_chunks]))
+
+            local_answer = select_answer_from_material(question, relevant_chunks)
+            if local_answer:
+                return local_answer, sources, confidence_from_material_answer(
+                    local_answer,
+                    question,
+                    relevant_chunks,
+                )
             
             # Generate answer using Grok with logical reasoning
             answer = await self._generate_logical_answer(question, context)
+            material_answer = answer_from_retrieved_material(question, relevant_chunks)
+            if is_unhelpful_answer(answer) and material_answer:
+                return material_answer, sources, confidence_from_material_answer(
+                    material_answer,
+                    question,
+                    relevant_chunks,
+                )
             
             # Calculate confidence based on relevance scores and keyword matching
             avg_relevance = sum(chunk['relevance_score'] for chunk in relevant_chunks) / len(relevant_chunks)
@@ -95,8 +118,7 @@ class XAIService:
     async def _generate_logical_answer(self, question: str, context: str) -> str:
         """Generate answer using xAI Grok with logical reasoning emphasis"""
         try:
-            chat_completion = self.client.chat.completions.create(
-                messages=[
+            messages = [
                     {
                         "role": "system",
                         "content": EXACT_ANSWER_SYSTEM_PROMPT
@@ -108,13 +130,35 @@ class XAIService:
                             context=context,
                         )
                     }
-                ],
-                model=self.model,
-                temperature=0,
-                max_tokens=200,
-            )
-            
-            return normalize_exact_answer(chat_completion.choices[0].message.content)
+                ]
+
+            answer = await self._create_completion(messages)
+            if not is_unhelpful_answer(answer):
+                return normalize_exact_answer(answer)
+
+            retry_messages = [
+                {
+                    "role": "system",
+                    "content": EXACT_RETRY_SYSTEM_PROMPT
+                },
+                {
+                    "role": "user",
+                    "content": EXACT_RETRY_QUESTION_TEMPLATE.format(
+                        question=question,
+                        context=context,
+                    )
+                }
+            ]
+            return normalize_exact_answer(await self._create_completion(retry_messages))
             
         except Exception as e:
             raise Exception(f"Error calling xAI Grok API: {str(e)}")
+
+    async def _create_completion(self, messages: list) -> Optional[str]:
+        chat_completion = self.client.chat.completions.create(
+            messages=messages,
+            model=self.model,
+            temperature=0,
+            max_tokens=200,
+        )
+        return chat_completion.choices[0].message.content
