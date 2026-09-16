@@ -97,6 +97,8 @@ async def root():
     return {
         "message": "Dashboard API",
         "version": "1.0.0",
+        "build": os.getenv("RAILWAY_GIT_COMMIT_SHA", "local"),
+        "ocr": "tesseract",
         "ai_provider": ai_provider,
         "status": "Ready" if (USE_META or USE_DEEPSEEK or USE_XAI or USE_GROQ or USE_OPENAI) else "⚠️ No AI configured",
         "get_free_key": "https://build.nvidia.com/ or https://console.groq.com/" if not (USE_META or USE_DEEPSEEK or USE_XAI or USE_GROQ or USE_OPENAI) else None,
