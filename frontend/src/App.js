@@ -30,7 +30,7 @@ function App() {
         ) : (
           <>
             <div className="main-content">
-              <h1 className="title">Exam Preparation Assistant</h1>
+              <h1 className="title">Assistant</h1>
               <p className="subtitle">
                 Ask questions by typing, pasting screenshots (Ctrl+V), or dragging images
               </p>

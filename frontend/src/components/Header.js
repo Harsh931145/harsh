@@ -8,7 +8,7 @@ function Header({ onToggleDocuments }) {
       <div className="header-content">
         <div className="logo">
           <BookOpen size={32} />
-          <span>Exam Dashboard</span>
+          <span>Dashboard</span>
         </div>
         <button className="doc-button" onClick={onToggleDocuments}>
           <FileText size={20} />

@@ -16,7 +16,7 @@ from backend.services.meta_service import MetaService
 # Load environment variables
 load_dotenv()
 
-app = FastAPI(title="Exam Dashboard API")
+app = FastAPI(title="Dashboard API")
 
 # CORS middleware
 app.add_middleware(
@@ -93,7 +93,7 @@ async def root():
         ai_provider = "OpenAI"
     
     return {
-        "message": "Exam Dashboard API",
+        "message": "Dashboard API",
         "version": "1.0.0",
         "ai_provider": ai_provider,
         "status": "Ready" if (USE_DEEPSEEK or USE_XAI or USE_GROQ or USE_OPENAI) else "⚠️ No AI configured",

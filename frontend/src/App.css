@@ -1,45 +1,47 @@
 .App {
   min-height: 100vh;
-  padding: 20px;
+  padding: 24px;
 }
 
 .container {
-  max-width: 1200px;
+  max-width: 1180px;
   margin: 0 auto;
 }
 
 .main-content {
   background: white;
-  border-radius: 20px;
-  padding: 40px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  margin-top: 20px;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  padding: 32px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+  margin-top: 18px;
 }
 
 .title {
-  font-size: 2.5rem;
-  color: #2d3748;
-  margin-bottom: 10px;
+  font-size: 2rem;
+  color: #172033;
+  margin-bottom: 8px;
   text-align: center;
-  font-weight: 700;
+  font-weight: 650;
+  letter-spacing: 0;
 }
 
 .subtitle {
-  font-size: 1.1rem;
-  color: #718096;
+  font-size: 1rem;
+  color: #65758b;
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 28px;
 }
 
 .loading {
   text-align: center;
-  padding: 40px;
-  color: #667eea;
+  padding: 32px;
+  color: #2563eb;
 }
 
 .spinner {
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #667eea;
+  border: 4px solid #e5eaf0;
+  border-top: 4px solid #2563eb;
   border-radius: 50%;
   width: 50px;
   height: 50px;
@@ -53,12 +55,16 @@
 }
 
 @media (max-width: 768px) {
+  .App {
+    padding: 12px;
+  }
+
   .main-content {
-    padding: 20px;
+    padding: 18px;
   }
 
   .title {
-    font-size: 1.8rem;
+    font-size: 1.55rem;
   }
 
   .subtitle {

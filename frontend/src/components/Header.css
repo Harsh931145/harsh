@@ -1,9 +1,9 @@
 .header {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-radius: 15px;
-  padding: 15px 30px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  background: #ffffff;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  padding: 14px 24px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.07);
 }
 
 .header-content {
@@ -18,38 +18,41 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #667eea;
+  font-size: 1.2rem;
+  font-weight: 650;
+  color: #1f2a44;
+}
+
+.logo svg {
+  color: #2563eb;
 }
 
 .doc-button {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 20px;
-  background: #667eea;
+  padding: 10px 16px;
+  background: #2563eb;
   color: white;
   border: none;
-  border-radius: 10px;
-  font-size: 1rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
   cursor: pointer;
   transition: all 0.3s;
 }
 
 .doc-button:hover {
-  background: #5568d3;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  background: #1d4ed8;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.22);
 }
 
 @media (max-width: 768px) {
   .header {
-    padding: 12px 20px;
+    padding: 12px 14px;
   }
 
   .logo {
-    font-size: 1.2rem;
+    font-size: 1rem;
   }
 
   .logo svg {

@@ -15,10 +15,17 @@ function AnswerDisplay({ answer }) {
     <div className="answer-display">
       <div className="answer-header">
         <CheckCircle className="check-icon" size={28} />
-        <h2>Answer</h2>
+        <div>
+          <span className="answer-label">Result</span>
+          <h2>Answer</h2>
+        </div>
       </div>
 
       <div className="answer-content">
+        <div className="answer-badge">
+          <CheckCircle size={18} />
+          <span>Highlighted answer</span>
+        </div>
         <p>{answerText}</p>
       </div>
 
