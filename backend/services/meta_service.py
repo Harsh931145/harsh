@@ -6,6 +6,7 @@ from .answer_prompts import (
     EXACT_ANSWER_SYSTEM_PROMPT,
     EXACT_IMAGE_QUESTION_TEMPLATE,
     EXACT_TEXT_QUESTION_TEMPLATE,
+    normalize_exact_answer,
 )
 
 
@@ -137,10 +138,10 @@ class MetaService:
                 messages=messages,
                 model=self.model,
                 temperature=0,
-                max_tokens=80,
+                max_tokens=200,
             )
             
-            return chat_completion.choices[0].message.content.strip()
+            return normalize_exact_answer(chat_completion.choices[0].message.content)
             
         except Exception as e:
             raise Exception(f"Error calling Meta Muse API: {str(e)}")

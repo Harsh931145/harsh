@@ -7,6 +7,9 @@ function AnswerDisplay({ answer }) {
   const confidenceLevel = 
     confidencePercentage >= 80 ? 'high' : 
     confidencePercentage >= 50 ? 'medium' : 'low';
+  const answerText = answer.answer && answer.answer.trim()
+    ? answer.answer
+    : 'Not found in uploaded materials';
 
   return (
     <div className="answer-display">
@@ -16,7 +19,7 @@ function AnswerDisplay({ answer }) {
       </div>
 
       <div className="answer-content">
-        <p>{answer.answer}</p>
+        <p>{answerText}</p>
       </div>
 
       {answer.sources && answer.sources.length > 0 && (

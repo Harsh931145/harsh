@@ -2,7 +2,11 @@ import os
 from typing import Tuple, List, Optional
 from openai import OpenAI
 from .knowledge_base import KnowledgeBase
-from .answer_prompts import EXACT_ANSWER_SYSTEM_PROMPT, EXACT_TEXT_QUESTION_TEMPLATE
+from .answer_prompts import (
+    EXACT_ANSWER_SYSTEM_PROMPT,
+    EXACT_TEXT_QUESTION_TEMPLATE,
+    normalize_exact_answer,
+)
 
 
 class DeepSeekService:
@@ -108,10 +112,10 @@ class DeepSeekService:
                 ],
                 model=self.model,
                 temperature=0,
-                max_tokens=80,
+                max_tokens=200,
             )
             
-            return chat_completion.choices[0].message.content.strip()
+            return normalize_exact_answer(chat_completion.choices[0].message.content)
             
         except Exception as e:
             raise Exception(f"Error calling DeepSeek API: {str(e)}")

@@ -9,6 +9,7 @@ from .answer_prompts import (
     EXACT_ANSWER_SYSTEM_PROMPT,
     EXACT_TEXT_QUESTION_TEMPLATE,
     OCR_EXTRACTION_PROMPT,
+    normalize_exact_answer,
 )
 
 
@@ -142,10 +143,10 @@ class AIService:
                     }
                 ],
                 temperature=0,
-                max_tokens=80
+                max_tokens=200
             )
             
-            return response.choices[0].message.content.strip()
+            return normalize_exact_answer(response.choices[0].message.content)
             
         except Exception as e:
             raise Exception(f"Error calling OpenAI API: {str(e)}")

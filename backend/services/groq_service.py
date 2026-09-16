@@ -2,7 +2,11 @@ import os
 from typing import Tuple, List, Optional
 from groq import Groq
 from .knowledge_base import KnowledgeBase
-from .answer_prompts import EXACT_ANSWER_SYSTEM_PROMPT, EXACT_TEXT_QUESTION_TEMPLATE
+from .answer_prompts import (
+    EXACT_ANSWER_SYSTEM_PROMPT,
+    EXACT_TEXT_QUESTION_TEMPLATE,
+    normalize_exact_answer,
+)
 
 
 class GroqService:
@@ -119,10 +123,11 @@ class GroqService:
                 ],
                 model="openai/gpt-oss-120b",  # Current active Groq model (as of 2024)
                 temperature=0,
-                max_tokens=80,
+                max_tokens=200,
             )
-            
-            return chat_completion.choices[0].message.content.strip()
+
+            message = chat_completion.choices[0].message
+            return normalize_exact_answer(getattr(message, "content", None))
             
         except Exception as e:
             raise Exception(f"Error calling Groq API: {str(e)}")
