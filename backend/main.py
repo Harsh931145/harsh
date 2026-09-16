@@ -5,6 +5,8 @@ from typing import Optional
 import os
 from dotenv import load_dotenv
 import base64
+import shutil
+from pathlib import Path
 
 from backend.services.pdf_processor import PDFProcessor
 from backend.services.knowledge_base import KnowledgeBase
@@ -27,8 +29,53 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+BUNDLED_KNOWLEDGE_BASE_PATH = PROJECT_ROOT / "knowledgebase"
+DEFAULT_KNOWLEDGE_BASE_VALUES = {
+    "",
+    "../knowledgebase",
+    "knowledgebase",
+    "/app/knowledgebase",
+}
+
+
+def resolve_knowledge_base_path() -> tuple[str, bool]:
+    """Use Railway persistent volumes automatically when available."""
+    configured_path = (os.getenv("KNOWLEDGE_BASE_PATH") or "").strip()
+    volume_mount = (os.getenv("RAILWAY_VOLUME_MOUNT_PATH") or "").strip()
+
+    if volume_mount and configured_path in DEFAULT_KNOWLEDGE_BASE_VALUES:
+        return str(Path(volume_mount) / "knowledgebase"), True
+
+    if configured_path:
+        return configured_path, False
+
+    return str(BUNDLED_KNOWLEDGE_BASE_PATH), False
+
+
+def seed_persistent_knowledge_base(target_path: str, is_persistent: bool) -> None:
+    """Copy bundled PDFs into a fresh persistent volume without overwriting uploads."""
+    if not is_persistent or not BUNDLED_KNOWLEDGE_BASE_PATH.exists():
+        return
+
+    target = Path(target_path)
+    target.mkdir(parents=True, exist_ok=True)
+
+    copied = 0
+    for source_pdf in BUNDLED_KNOWLEDGE_BASE_PATH.glob("*.pdf"):
+        target_pdf = target / source_pdf.name
+        if not target_pdf.exists():
+            shutil.copy2(source_pdf, target_pdf)
+            copied += 1
+
+    if copied:
+        print(f"Seeded {copied} bundled PDFs into persistent knowledge base: {target}")
+
+
 # Initialize services
-knowledge_base_path = os.getenv("KNOWLEDGE_BASE_PATH", "../knowledgebase")
+knowledge_base_path, knowledge_base_is_persistent = resolve_knowledge_base_path()
+seed_persistent_knowledge_base(knowledge_base_path, knowledge_base_is_persistent)
 pdf_processor = PDFProcessor()
 knowledge_base = KnowledgeBase(knowledge_base_path)
 
@@ -99,6 +146,8 @@ async def root():
         "version": "1.0.0",
         "build": os.getenv("RAILWAY_GIT_COMMIT_SHA", "local"),
         "ocr": "tesseract",
+        "knowledge_base_path": knowledge_base_path,
+        "persistent_storage": knowledge_base_is_persistent,
         "ai_provider": ai_provider,
         "status": "Ready" if (USE_META or USE_DEEPSEEK or USE_XAI or USE_GROQ or USE_OPENAI) else "⚠️ No AI configured",
         "get_free_key": "https://build.nvidia.com/ or https://console.groq.com/" if not (USE_META or USE_DEEPSEEK or USE_XAI or USE_GROQ or USE_OPENAI) else None,

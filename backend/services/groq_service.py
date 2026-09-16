@@ -1,3 +1,4 @@
+import asyncio
 import os
 from typing import Tuple, List, Optional
 from groq import Groq
@@ -66,7 +67,7 @@ class GroqService:
                 question = build_search_question(question, image_text)
             
             # Enhanced search with more results for better logical matching
-            relevant_chunks = self.knowledge_base.search(question, top_k=12)
+            relevant_chunks = self.knowledge_base.search(question, top_k=8)
             
             if not relevant_chunks:
                 return (
@@ -104,6 +105,12 @@ class GroqService:
             return answer, sources, confidence
             
         except Exception as e:
+            if _is_rate_limit_error(e):
+                return (
+                    "Groq rate limit reached. Please wait a minute and try again.",
+                    [],
+                    0.0,
+                )
             return f"Error generating answer: {str(e)}", [], 0.0
     
     def _prepare_context(self, relevant_chunks: List[dict]) -> str:
@@ -175,11 +182,24 @@ class GroqService:
             raise Exception(f"Error calling Groq API: {str(e)}")
 
     async def _create_completion(self, messages: list) -> Optional[str]:
-        chat_completion = self.client.chat.completions.create(
-            messages=messages,
-            model="openai/gpt-oss-120b",  # Current active Groq model (as of 2024)
-            temperature=0,
-            max_tokens=200,
-        )
-        message = chat_completion.choices[0].message
-        return getattr(message, "content", None)
+        for attempt in range(2):
+            try:
+                chat_completion = self.client.chat.completions.create(
+                    messages=messages,
+                    model="openai/gpt-oss-120b",
+                    temperature=0,
+                    max_tokens=80,
+                )
+                message = chat_completion.choices[0].message
+                return getattr(message, "content", None)
+            except Exception as e:
+                if attempt == 0 and _is_rate_limit_error(e):
+                    await asyncio.sleep(4)
+                    continue
+                raise
+
+
+def _is_rate_limit_error(error: Exception) -> bool:
+    message = str(error).lower()
+    status_code = getattr(error, "status_code", None)
+    return status_code == 429 or "rate limit" in message or "too many requests" in message
