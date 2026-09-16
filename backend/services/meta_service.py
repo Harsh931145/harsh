@@ -2,6 +2,11 @@ import os
 from typing import Tuple, List, Optional
 from openai import OpenAI
 from .knowledge_base import KnowledgeBase
+from .answer_prompts import (
+    EXACT_ANSWER_SYSTEM_PROMPT,
+    EXACT_IMAGE_QUESTION_TEMPLATE,
+    EXACT_TEXT_QUESTION_TEMPLATE,
+)
 
 
 class MetaService:
@@ -92,44 +97,7 @@ class MetaService:
             messages = [
                 {
                     "role": "system",
-                    "content": """You are an expert Petpooja product specialist and MCQ exam assistant. You analyze screenshots of multiple-choice questions about Petpooja products and identify the correct answer.
-
-PETPOOJA PRODUCTS CONTEXT:
-- Petpooja POS: Point of Sale system for restaurants
-- Petpooja Dashboard: Analytics and management dashboard
-- Petpooja Payroll (Attendo): Employee attendance and payroll management
-- Petpooja Finance: Financial management and accounting
-
-MCQ ANALYSIS GUIDELINES:
-1. CAREFULLY READ the question in the screenshot
-2. IDENTIFY all available options (A, B, C, D or numbered options)
-3. **CRITICAL: Look for the BOLD option - this is the correct answer**
-4. The correct answer will be displayed in BOLD text in the screenshot
-5. EXTRACT KEYWORDS from the question and bold answer
-6. Provide reasoning based on Petpooja product knowledge
-
-ANSWER FORMAT:
-- Start with: "**Answer: [Option Letter/Number] - [Bold Option Text]**"
-- Then provide brief reasoning explaining why this is correct
-- Reference relevant study materials if available
-
-VISUAL CUE PRIORITY:
-1. **FIRST**: Identify which option is BOLD in the screenshot
-2. **SECOND**: Extract the text of the bold option
-3. **THIRD**: Provide reasoning based on product knowledge
-
-REASONING APPROACH:
-- Explain why the bold answer makes sense
-- Connect to Petpooja product features and functionality
-- Use keywords that match the question
-- Reference study materials as supporting evidence
-- Apply domain knowledge about POS, payroll, finance, and dashboard systems
-
-IMPORTANT: 
-- The correct answer is shown in BOLD in the screenshot
-- Always look for bold text formatting first
-- The bold option is always the correct answer
-- Provide confident reasoning for the bold answer"""
+                    "content": EXACT_ANSWER_SYSTEM_PROMPT
                 }
             ]
             
@@ -139,31 +107,10 @@ IMPORTANT:
                 user_content = [
                     {
                         "type": "text",
-                        "text": f"""Analyze this MCQ screenshot about Petpooja products and identify the correct answer.
-
-CONTEXT: This is a multiple-choice question about Petpooja products (POS, Dashboard, Payroll/Attendo, Finance).
-
-**IMPORTANT**: The correct answer is shown in **BOLD** text in the screenshot. Look for the bold option first!
-
-YOUR TASK:
-1. Look at the screenshot and identify which option is in BOLD text
-2. The BOLD option is the correct answer
-3. Read the question carefully
-4. Extract keywords related to Petpooja products
-5. Provide reasoning why the bold answer is correct
-
-STUDY MATERIALS (for reference):
-{context}
-
-ADDITIONAL QUESTION/CONTEXT: {question}
-
-Please provide:
-- **Answer: [Option Letter/Number] - [Bold Option Text]** (always bold the answer)
-- Reasoning: Explain why this bold answer is correct (2-3 sentences with Petpooja product knowledge)
-- Keywords: Key terms from question and answer
-- Confidence: High (since answer is provided in bold)
-
-Remember: Look for the BOLD option in the screenshot - that is always the correct answer!"""
+                        "text": EXACT_IMAGE_QUESTION_TEMPLATE.format(
+                            question=question,
+                            context=context,
+                        )
                     },
                     {
                         "type": "image_url",
@@ -180,32 +127,17 @@ Remember: Look for the BOLD option in the screenshot - that is always the correc
                 # Text-only query
                 messages.append({
                     "role": "user",
-                    "content": f"""Answer this MCQ question about Petpooja products using the study materials.
-
-CONTEXT: This is about Petpooja products (POS, Dashboard, Payroll/Attendo, Finance).
-
-Question: {question}
-
-STUDY MATERIALS:
-{context}
-
-INSTRUCTIONS:
-1. Identify keywords in the question
-2. Match with Petpooja product features from study materials
-3. Use logical reasoning to find the correct answer
-4. If options are provided in the question, select from those options
-
-Please provide:
-- Answer: [Clear answer or option]
-- Reasoning: Why this is correct (keywords and logic)
-- References: Which study materials support this answer"""
+                    "content": EXACT_TEXT_QUESTION_TEMPLATE.format(
+                        question=question,
+                        context=context,
+                    )
                 })
             
             chat_completion = self.client.chat.completions.create(
                 messages=messages,
                 model=self.model,
-                temperature=0.2,
-                max_tokens=1500,
+                temperature=0,
+                max_tokens=80,
             )
             
             return chat_completion.choices[0].message.content.strip()

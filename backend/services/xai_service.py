@@ -2,6 +2,7 @@ import os
 from typing import Tuple, List, Optional
 from openai import OpenAI
 from .knowledge_base import KnowledgeBase
+from .answer_prompts import EXACT_ANSWER_SYSTEM_PROMPT, EXACT_TEXT_QUESTION_TEMPLATE
 
 
 class XAIService:
@@ -94,43 +95,19 @@ class XAIService:
                 messages=[
                     {
                         "role": "system",
-                        "content": """You are an expert exam preparation assistant with strong logical reasoning abilities. Your role is to provide precise, accurate answers to exam questions based on the provided study materials.
-
-Guidelines:
-- Use LOGICAL REASONING to connect concepts and draw conclusions
-- Look for KEYWORDS and RELATED TERMS in the study materials
-- Even if exact words don't match, use logical inference to find the answer
-- Answer questions directly and concisely
-- If the question involves calculations, show step-by-step work
-- If explaining concepts, be clear and structured
-- Use analogies and examples when helpful
-- For multiple choice questions, explain the reasoning for the correct answer
-- Connect related concepts even if they use different terminology
-- Format answers with bullet points or numbered lists when appropriate
-
-IMPORTANT: Use logical thinking and keyword analysis. The answer might be expressed differently in the study materials - look for the underlying concepts and meaning."""
+                        "content": EXACT_ANSWER_SYSTEM_PROMPT
                     },
                     {
                         "role": "user",
-                        "content": f"""Based on the following exam materials, please answer this question using logical reasoning and keyword analysis:
-
-Question: {question}
-
-Relevant Study Materials:
-{context}
-
-Instructions:
-1. Analyze the question to identify key concepts and keywords
-2. Look for related information in the study materials (even if worded differently)
-3. Use logical reasoning to connect concepts
-4. Provide a precise, well-reasoned answer
-
-Please provide your answer:"""
+                        "content": EXACT_TEXT_QUESTION_TEMPLATE.format(
+                            question=question,
+                            context=context,
+                        )
                     }
                 ],
                 model=self.model,
-                temperature=0.2,
-                max_tokens=1500,
+                temperature=0,
+                max_tokens=80,
             )
             
             return chat_completion.choices[0].message.content.strip()

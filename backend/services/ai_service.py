@@ -5,6 +5,11 @@ from io import BytesIO
 from PIL import Image
 import openai
 from .knowledge_base import KnowledgeBase
+from .answer_prompts import (
+    EXACT_ANSWER_SYSTEM_PROMPT,
+    EXACT_TEXT_QUESTION_TEMPLATE,
+    OCR_EXTRACTION_PROMPT,
+)
 
 
 class AIService:
@@ -87,7 +92,7 @@ class AIService:
                         "content": [
                             {
                                 "type": "text",
-                                "text": "Extract all text from this image. If it contains a question, mathematical formula, or diagram, describe it clearly."
+                                "text": OCR_EXTRACTION_PROMPT
                             },
                             {
                                 "type": "image_url",
@@ -126,31 +131,18 @@ class AIService:
                 messages=[
                     {
                         "role": "system",
-                        "content": """You are an expert exam preparation assistant. Your role is to provide precise, accurate answers to exam questions based on the provided study materials.
-
-Guidelines:
-- Answer questions directly and concisely
-- Use information from the provided context
-- If the question involves calculations, show step-by-step work
-- If explaining concepts, be clear and structured
-- If the context doesn't contain enough information, acknowledge it
-- For multiple choice questions, explain why the correct answer is right
-- Format answers with bullet points or numbered lists when appropriate"""
+                        "content": EXACT_ANSWER_SYSTEM_PROMPT
                     },
                     {
                         "role": "user",
-                        "content": f"""Based on the following exam materials, please answer this question:
-
-Question: {question}
-
-Relevant Study Materials:
-{context}
-
-Please provide a precise, well-structured answer."""
+                        "content": EXACT_TEXT_QUESTION_TEMPLATE.format(
+                            question=question,
+                            context=context,
+                        )
                     }
                 ],
-                temperature=0.3,
-                max_tokens=1500
+                temperature=0,
+                max_tokens=80
             )
             
             return response.choices[0].message.content.strip()
