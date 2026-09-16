@@ -1,5 +1,7 @@
+import asyncio
 import os
 import pickle
+import threading
 from typing import List, Dict, Tuple
 from sentence_transformers import SentenceTransformer
 import faiss
@@ -23,6 +25,7 @@ class KnowledgeBase:
         self.documents = []  # Store document chunks with metadata
         self.index_path = os.path.join(knowledge_base_path, '.index.faiss')
         self.docs_path = os.path.join(knowledge_base_path, '.documents.pkl')
+        self._index_lock = threading.RLock()
         
     async def initialize(self):
         """Initialize or load existing knowledge base"""
@@ -31,10 +34,12 @@ class KnowledgeBase:
         # Try to load existing index
         if os.path.exists(self.index_path) and os.path.exists(self.docs_path):
             try:
-                self.index = faiss.read_index(self.index_path)
-                with open(self.docs_path, 'rb') as f:
-                    self.documents = pickle.load(f)
+                with self._index_lock:
+                    self.index = faiss.read_index(self.index_path)
+                    with open(self.docs_path, 'rb') as f:
+                        self.documents = pickle.load(f)
                 print(f"Loaded existing knowledge base with {len(self.documents)} chunks")
+                await self._index_missing_documents()
                 return
             except Exception as e:
                 print(f"Error loading existing index: {e}")
@@ -46,6 +51,10 @@ class KnowledgeBase:
         await self.refresh()
     
     async def add_document(self, pdf_path: str):
+        """Add a document without blocking the FastAPI event loop."""
+        return await asyncio.to_thread(self._add_document_sync, pdf_path)
+
+    def _add_document_sync(self, pdf_path: str):
         """Add a new document to the knowledge base with optimized processing"""
         import time
         start_time = time.time()
@@ -75,19 +84,20 @@ class KnowledgeBase:
             
             # Add to FAISS index
             index_start = time.time()
-            self.index.add(np.array(embeddings).astype('float32'))
-            
-            # Store document chunks with metadata
-            for i, chunk in enumerate(chunks):
-                self.documents.append({
-                    'filename': pdf_data['metadata']['filename'],
-                    'chunk_id': i,
-                    'content': chunk,
-                    'source': pdf_path
-                })
-            
-            # Save index and documents
-            self._save_index()
+            with self._index_lock:
+                self.index.add(np.array(embeddings).astype('float32'))
+
+                # Store document chunks with metadata
+                for i, chunk in enumerate(chunks):
+                    self.documents.append({
+                        'filename': pdf_data['metadata']['filename'],
+                        'chunk_id': i,
+                        'content': chunk,
+                        'source': pdf_path
+                    })
+
+                # Save index and documents
+                self._save_index()
             index_time = time.time() - index_start
             print(f"  💾 Indexing: {index_time:.2f}s")
             
@@ -100,8 +110,9 @@ class KnowledgeBase:
     async def refresh(self):
         """Refresh the entire knowledge base by reprocessing all PDFs"""
         # Clear existing data
-        self.index = faiss.IndexFlatL2(self.embedding_dimension)
-        self.documents = []
+        with self._index_lock:
+            self.index = faiss.IndexFlatL2(self.embedding_dimension)
+            self.documents = []
         
         # Process all PDF files
         pdf_files = [f for f in os.listdir(self.knowledge_base_path) if f.endswith('.pdf')]
@@ -118,6 +129,25 @@ class KnowledgeBase:
                 print(f"Error processing {pdf_file}: {e}")
         
         print(f"Knowledge base refreshed with {len(self.documents)} total chunks")
+
+    async def _index_missing_documents(self):
+        """Repair the index when PDFs exist on disk but are missing from FAISS."""
+        pdf_files = [f for f in os.listdir(self.knowledge_base_path) if f.endswith('.pdf')]
+        with self._index_lock:
+            indexed_files = {doc.get('filename') for doc in self.documents}
+
+        missing_files = [filename for filename in pdf_files if filename not in indexed_files]
+
+        if not missing_files:
+            return
+
+        print(f"Found {len(missing_files)} unindexed PDF(s); adding them to knowledge base")
+        for pdf_file in missing_files:
+            pdf_path = os.path.join(self.knowledge_base_path, pdf_file)
+            try:
+                await self.add_document(pdf_path)
+            except Exception as e:
+                print(f"Error indexing missing document {pdf_file}: {e}")
     
     def search(self, query: str, top_k: int = 5) -> List[Dict]:
         """
@@ -142,27 +172,28 @@ class KnowledgeBase:
         # Search more results initially for better filtering
         search_k = min(top_k * 3, len(self.documents))
         
-        # Search in FAISS index
-        distances, indices = self.index.search(
-            np.array(query_embedding).astype('float32'), 
-            search_k
-        )
-        
-        # Prepare results with enhanced scoring
-        results = []
-        for dist, idx in zip(distances[0], indices[0]):
-            if idx < len(self.documents):
-                doc = self.documents[idx].copy()
-                
-                # Calculate base relevance score
-                base_score = float(1 / (1 + dist))
-                
-                # Boost score if keywords match
-                keyword_boost = self._calculate_keyword_boost(query, doc['content'])
-                
-                # Final score combines semantic similarity and keyword matching
-                doc['relevance_score'] = min(base_score * (1 + keyword_boost), 1.0)
-                results.append(doc)
+        with self._index_lock:
+            # Search in FAISS index
+            distances, indices = self.index.search(
+                np.array(query_embedding).astype('float32'), 
+                search_k
+            )
+
+            # Prepare results with enhanced scoring
+            results = []
+            for dist, idx in zip(distances[0], indices[0]):
+                if idx < len(self.documents):
+                    doc = self.documents[idx].copy()
+
+                    # Calculate base relevance score
+                    base_score = float(1 / (1 + dist))
+
+                    # Boost score if keywords match
+                    keyword_boost = self._calculate_keyword_boost(query, doc['content'])
+
+                    # Final score combines semantic similarity and keyword matching
+                    doc['relevance_score'] = min(base_score * (1 + keyword_boost), 1.0)
+                    results.append(doc)
         
         # Sort by relevance score and return top_k
         results.sort(key=lambda x: x['relevance_score'], reverse=True)
