@@ -41,6 +41,7 @@ wheels/
 knowledgebase/*.pdf
 knowledgebase/.index.faiss
 knowledgebase/.documents.pkl
+railway-live-knowledgebase-backup/
 
 # Frontend
 frontend/node_modules/
