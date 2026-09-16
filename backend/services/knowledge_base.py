@@ -26,6 +26,7 @@ class KnowledgeBase:
         self.index_path = os.path.join(knowledge_base_path, '.index.faiss')
         self.docs_path = os.path.join(knowledge_base_path, '.documents.pkl')
         self._index_lock = threading.RLock()
+        self._missing_index_task = None
         
     async def initialize(self):
         """Initialize or load existing knowledge base"""
@@ -39,7 +40,7 @@ class KnowledgeBase:
                     with open(self.docs_path, 'rb') as f:
                         self.documents = pickle.load(f)
                 print(f"Loaded existing knowledge base with {len(self.documents)} chunks")
-                await self._index_missing_documents()
+                self._missing_index_task = asyncio.create_task(self._index_missing_documents())
                 return
             except Exception as e:
                 print(f"Error loading existing index: {e}")
@@ -141,7 +142,7 @@ class KnowledgeBase:
         if not missing_files:
             return
 
-        print(f"Found {len(missing_files)} unindexed PDF(s); adding them to knowledge base")
+        print(f"Found {len(missing_files)} unindexed PDF(s); adding them in background")
         for pdf_file in missing_files:
             pdf_path = os.path.join(self.knowledge_base_path, pdf_file)
             try:
